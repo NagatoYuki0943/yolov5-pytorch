@@ -65,11 +65,11 @@ class GELU(nn.Module):
 
     def forward(self, x):
         return 0.5 * x * (1 + torch.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * torch.pow(x,3))))
-    
+
 #---------------------------------------------------------------------------------#
-#   LayerNorm 支持两种形式channels_last (default) or channels_first. 
-#   channels_last   对应具有形状的输入(batch_size, height, width, channels) 
-#   channels_first  对应具有形状的输入(batch_size, channels, height, width).   
+#   LayerNorm 支持两种形式channels_last (default) or channels_first.
+#   channels_last   对应具有形状的输入(batch_size, height, width, channels)
+#   channels_first  对应具有形状的输入(batch_size, channels, height, width).
 #---------------------------------------------------------------------------------#
 class LayerNorm(nn.Module):
     def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
@@ -79,9 +79,9 @@ class LayerNorm(nn.Module):
         self.eps = eps
         self.data_format = data_format
         if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError 
+            raise NotImplementedError
         self.normalized_shape = (normalized_shape, )
-    
+
     def forward(self, x):
         if self.data_format == "channels_last":
             return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
@@ -174,7 +174,7 @@ class ConvNeXt(nn.Module):
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
         self.downsample_layers.append(stem)
-        
+
         #--------------------------------------------------#
         #   定义三次下采样的过程
         #   利用步长为2x2，卷积核大小为2x2的卷积进行下采样

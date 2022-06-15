@@ -28,7 +28,7 @@ class YoloDataset(Dataset):
 
         self.epoch_now          = -1
         self.length             = len(self.annotation_lines)
-        
+
         self.bbox_attrs         = 5 + num_classes
         self.threshold          = 4
 
@@ -43,6 +43,7 @@ class YoloDataset(Dataset):
         #   验证时不进行数据的随机增强
         #---------------------------------------------------#
         if self.mosaic and self.rand() < self.mosaic_prob and self.epoch_now < self.epoch_length * self.special_aug_ratio:
+                # 随机取3张再加上index的图片进行增强
             lines = sample(self.annotation_lines, 3)
             lines.append(self.annotation_lines[index])
             shuffle(lines)
@@ -55,27 +56,34 @@ class YoloDataset(Dataset):
         else:
             image, box      = self.get_random_data(self.annotation_lines[index], self.input_shape, random = self.train)
 
+        # 转置将通道转换到前面
         image       = np.transpose(preprocess_input(np.array(image, dtype=np.float32)), (2, 0, 1))
+        # box转换到numpy
         box         = np.array(box, dtype=np.float32)
+        # 是否有真实框
         if len(box) != 0:
             #---------------------------------------------------#
             #   对真实框进行归一化，调整到0-1之间
             #---------------------------------------------------#
-            box[:, [0, 2]] = box[:, [0, 2]] / self.input_shape[1]
+            box[:, [0, 2]] = box[:, [0, 2]] / self.input_shape[1]   # 通过[]取指定位置元素
             box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
             #---------------------------------------------------#
             #   序号为0、1的部分，为真实框的中心
             #   序号为2、3的部分，为真实框的宽高
             #   序号为4的部分，为真实框的种类
             #---------------------------------------------------#
-            box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
-            box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
+            box[:, 2:4] = box[:, 2:4] - box[:, 0:2]         # x2-x1=w  y2-y2=h
+            box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2     # x1+1/2w=center_x  y1+1/2h=center_y
         y_true = self.get_target(box)
+
         return image, box, y_true
 
     def rand(self, a=0, b=1):
         return np.random.rand()*(b-a) + a
 
+    #---------------------------------------------------#
+    #   数据增强
+    #---------------------------------------------------#
     def get_random_data(self, annotation_line, input_shape, jitter=.3, hue=.1, sat=0.7, val=0.4, random=True):
         line    = annotation_line.split()
         #------------------------------#
@@ -123,7 +131,7 @@ class YoloDataset(Dataset):
                 box = box[np.logical_and(box_w>1, box_h>1)] # discard invalid box
 
             return image_data, box
-                
+
         #------------------------------------------#
         #   对图像进行缩放并且进行长和宽的扭曲
         #------------------------------------------#
@@ -187,10 +195,10 @@ class YoloDataset(Dataset):
             box[:, 3][box[:, 3]>h] = h
             box_w = box[:, 2] - box[:, 0]
             box_h = box[:, 3] - box[:, 1]
-            box = box[np.logical_and(box_w>1, box_h>1)] 
-        
+            box = box[np.logical_and(box_w>1, box_h>1)]
+
         return image_data, box
-    
+
     def merge_bboxes(self, bboxes, cutx, cuty):
         merge_bbox = []
         for i in range(len(bboxes)):
@@ -237,12 +245,15 @@ class YoloDataset(Dataset):
                 merge_bbox.append(tmp_box)
         return merge_bbox
 
+    #---------------------------------------------------#
+    #   马赛克数据增强
+    #---------------------------------------------------#
     def get_random_data_with_Mosaic(self, annotation_line, input_shape, jitter=0.3, hue=.1, sat=0.7, val=0.4):
         h, w = input_shape
         min_offset_x = self.rand(0.3, 0.7)
         min_offset_y = self.rand(0.3, 0.7)
 
-        image_datas = [] 
+        image_datas = []
         box_datas   = []
         index       = 0
         for line in annotation_line:
@@ -255,7 +266,7 @@ class YoloDataset(Dataset):
             #---------------------------------#
             image = Image.open(line_content[0])
             image = cvtColor(image)
-            
+
             #---------------------------------#
             #   图片的大小
             #---------------------------------#
@@ -264,7 +275,7 @@ class YoloDataset(Dataset):
             #   保存框的位置
             #---------------------------------#
             box = np.array([np.array(list(map(int,box.split(',')))) for box in line_content[1:]])
-            
+
             #---------------------------------#
             #   是否翻转图片
             #---------------------------------#
@@ -301,7 +312,7 @@ class YoloDataset(Dataset):
             elif index == 3:
                 dx = int(w*min_offset_x)
                 dy = int(h*min_offset_y) - nh
-            
+
             new_image = Image.new('RGB', (w,h), (128,128,128))
             new_image.paste(image, (dx, dy))
             image_data = np.array(new_image)
@@ -323,7 +334,7 @@ class YoloDataset(Dataset):
                 box = box[np.logical_and(box_w>1, box_h>1)]
                 box_data = np.zeros((len(box),5))
                 box_data[:len(box)] = box
-            
+
             image_datas.append(image_data)
             box_datas.append(box_data)
 
@@ -377,7 +388,7 @@ class YoloDataset(Dataset):
         else:
             new_boxes = np.concatenate([box_1, box_2], axis=0)
         return new_image, new_boxes
-    
+
     def get_near_points(self, x, y, i, j):
         sub_x = x - i
         sub_y = y - j
@@ -395,19 +406,19 @@ class YoloDataset(Dataset):
         #   一共有三个特征层数
         #-----------------------------------------------------------#
         num_layers  = len(self.anchors_mask)
-        
+
         input_shape = np.array(self.input_shape, dtype='int32')
         grid_shapes = [input_shape // {0:32, 1:16, 2:8, 3:4}[l] for l in range(num_layers)]
         y_true      = [np.zeros((len(self.anchors_mask[l]), grid_shapes[l][0], grid_shapes[l][1], self.bbox_attrs), dtype='float32') for l in range(num_layers)]
         box_best_ratio = [np.zeros((len(self.anchors_mask[l]), grid_shapes[l][0], grid_shapes[l][1]), dtype='float32') for l in range(num_layers)]
-        
+
         if len(targets) == 0:
             return y_true
-        
+
         for l in range(num_layers):
             in_h, in_w      = grid_shapes[l]
             anchors         = np.array(self.anchors) / {0:32, 1:16, 2:8, 3:4}[l]
-            
+
             batch_target = np.zeros_like(targets)
             #-------------------------------------------------------#
             #   计算出正样本在特征层上的中心点
@@ -420,7 +431,7 @@ class YoloDataset(Dataset):
             #   np.expand_dims(wh, 1)       : num_true_box, 1, 2
             #   anchors                     : 9, 2
             #   np.expand_dims(anchors, 0)  : 1, 9, 2
-            #   
+            #
             #   ratios_of_gt_anchors代表每一个真实框和每一个先验框的宽高的比值
             #   ratios_of_gt_anchors    : num_true_box, 9, 2
             #   ratios_of_anchors_gt代表每一个先验框和每一个真实框的宽高的比值
@@ -434,7 +445,7 @@ class YoloDataset(Dataset):
             ratios_of_anchors_gt = np.expand_dims(anchors, 0) / np.expand_dims(batch_target[:, 2:4], 1)
             ratios               = np.concatenate([ratios_of_gt_anchors, ratios_of_anchors_gt], axis = -1)
             max_ratios           = np.max(ratios, axis = -1)
-            
+
             for t, ratio in enumerate(max_ratios):
                 #-------------------------------------------------------#
                 #   ratio : 9

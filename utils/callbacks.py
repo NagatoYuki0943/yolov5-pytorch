@@ -23,7 +23,7 @@ class LossHistory():
         self.log_dir    = log_dir
         self.losses     = []
         self.val_loss   = []
-        
+
         os.makedirs(self.log_dir)
         self.writer     = SummaryWriter(self.log_dir)
         try:
@@ -61,7 +61,7 @@ class LossHistory():
                 num = 5
             else:
                 num = 15
-            
+
             plt.plot(iters, scipy.signal.savgol_filter(self.losses, num, 3), 'green', linestyle = '--', linewidth = 2, label='smooth train loss')
             plt.plot(iters, scipy.signal.savgol_filter(self.val_loss, num, 3), '#8B4513', linestyle = '--', linewidth = 2, label='smooth val loss')
         except:
@@ -81,7 +81,7 @@ class EvalCallback():
     def __init__(self, net, input_shape, anchors, anchors_mask, class_names, num_classes, val_lines, log_dir, cuda, \
             map_out_path=".temp_map_out", max_boxes=100, confidence=0.05, nms_iou=0.5, letterbox_image=True, MINOVERLAP=0.5, eval_flag=True, period=1):
         super(EvalCallback, self).__init__()
-        
+
         self.net                = net
         self.input_shape        = input_shape
         self.anchors            = anchors
@@ -99,9 +99,9 @@ class EvalCallback():
         self.MINOVERLAP         = MINOVERLAP
         self.eval_flag          = eval_flag
         self.period             = period
-        
+
         self.bbox_util          = DecodeBox(self.anchors, self.num_classes, (self.input_shape[0], self.input_shape[1]), self.anchors_mask)
-        
+
         self.maps       = [0]
         self.epoches    = [0]
         if self.eval_flag:
@@ -139,11 +139,11 @@ class EvalCallback():
             #---------------------------------------------------------#
             #   将预测框进行堆叠，然后进行非极大抑制
             #---------------------------------------------------------#
-            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
+            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape,
                         image_shape, self.letterbox_image, conf_thres = self.confidence, nms_thres = self.nms_iou)
-                                                    
-            if results[0] is None: 
-                return 
+
+            if results[0] is None:
+                return
 
             top_label   = np.array(results[0][:, 6], dtype = 'int32')
             top_conf    = results[0][:, 4] * results[0][:, 5]
@@ -166,8 +166,8 @@ class EvalCallback():
             f.write("%s %s %s %s %s %s\n" % (predicted_class, score[:6], str(int(left)), str(int(top)), str(int(right)),str(int(bottom))))
 
         f.close()
-        return 
-    
+        return
+
     def on_epoch_end(self, epoch, model_eval):
         if epoch % self.period == 0 and self.eval_flag:
             self.net = model_eval
@@ -193,7 +193,7 @@ class EvalCallback():
                 #   获得预测txt
                 #------------------------------#
                 self.get_map_txt(image_id, image, self.class_names, self.map_out_path)
-                
+
                 #------------------------------#
                 #   获得真实框txt
                 #------------------------------#
@@ -202,7 +202,7 @@ class EvalCallback():
                         left, top, right, bottom, obj = box
                         obj_name = self.class_names[obj]
                         new_f.write("%s %s %s %s %s\n" % (obj_name, left, top, right, bottom))
-                        
+
             print("Calculate Map.")
             try:
                 temp_map = get_coco_map(class_names = self.class_names, path = self.map_out_path)[1]
@@ -214,7 +214,7 @@ class EvalCallback():
             with open(os.path.join(self.log_dir, "epoch_map.txt"), 'a') as f:
                 f.write(str(temp_map))
                 f.write("\n")
-            
+
             plt.figure()
             plt.plot(self.epoches, self.maps, 'red', linewidth = 2, label='train map')
 

@@ -8,13 +8,13 @@ from PIL import Image
 #---------------------------------------------------------#
 def cvtColor(image):
     if len(np.shape(image)) == 3 and np.shape(image)[2] == 3:
-        return image 
+        return image
     else:
         image = image.convert('RGB')
-        return image 
+        return image
 
 #---------------------------------------------------#
-#   对输入图像进行resize
+#   对输入图像进行resize,添加灰边
 #---------------------------------------------------#
 def resize_image(image, size, letterbox_image):
     iw, ih  = image.size

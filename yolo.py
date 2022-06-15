@@ -54,7 +54,7 @@ class YOLO(object):
         #---------------------------------------------------------------------#
         "confidence"        : 0.5,
         #---------------------------------------------------------------------#
-        #   非极大抑制所用到的nms_iou大小
+        #   非极大抑制所用到的nms_iou大小,越小越严格
         #---------------------------------------------------------------------#
         "nms_iou"           : 0.3,
         #---------------------------------------------------------------------#
@@ -83,7 +83,7 @@ class YOLO(object):
         self.__dict__.update(self._defaults)
         for name, value in kwargs.items():
             setattr(self, name, value)
-            
+
         #---------------------------------------------------#
         #   获得种类和先验框的数量
         #---------------------------------------------------#
@@ -147,16 +147,19 @@ class YOLO(object):
                 images = images.cuda()
             #---------------------------------------------------------#
             #   将图像输入网络当中进行预测！
+            #   [b, num_anchors, 85] 85 = x y w h 先验框置信度 种类置信度
             #---------------------------------------------------------#
             outputs = self.net(images)
             outputs = self.bbox_util.decode_box(outputs)
             #---------------------------------------------------------#
             #   将预测框进行堆叠，然后进行非极大抑制
+            #   [b, num_anchors, 85] 85 = x y w h 先验框置信度 种类置信度
+            #   在dim=1拼接,相当于拼接不同特征层的输出
             #---------------------------------------------------------#
-            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
+            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape,
                         image_shape, self.letterbox_image, conf_thres = self.confidence, nms_thres = self.nms_iou)
-                                                    
-            if results[0] is None: 
+
+            if results[0] is None:
                 return image
 
             top_label   = np.array(results[0][:, 6], dtype = 'int32')
@@ -216,7 +219,7 @@ class YOLO(object):
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
             print(label, top, left, bottom, right)
-            
+
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
             else:
@@ -259,9 +262,9 @@ class YOLO(object):
             #---------------------------------------------------------#
             #   将预测框进行堆叠，然后进行非极大抑制
             #---------------------------------------------------------#
-            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
+            results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape,
                         image_shape, self.letterbox_image, conf_thres=self.confidence, nms_thres=self.nms_iou)
-                                                    
+
         t1 = time.time()
         for _ in range(test_interval):
             with torch.no_grad():
@@ -275,7 +278,7 @@ class YOLO(object):
                 #---------------------------------------------------------#
                 results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
                             image_shape, self.letterbox_image, conf_thres=self.confidence, nms_thres=self.nms_iou)
-                            
+
         t2 = time.time()
         tact_time = (t2 - t1) / test_interval
         return tact_time
@@ -309,7 +312,7 @@ class YOLO(object):
             #   将图像输入网络当中进行预测！
             #---------------------------------------------------------#
             outputs = self.net(images)
-        
+
         plt.imshow(image, alpha=1)
         plt.axis('off')
         mask    = np.zeros((image.size[1], image.size[0]))
@@ -321,7 +324,7 @@ class YOLO(object):
             score      = cv2.resize(score, (image.size[0], image.size[1]))
             normed_score    = (score * 255).astype('uint8')
             mask            = np.maximum(mask, normed_score)
-            
+
         plt.imshow(mask, alpha=0.5, interpolation='nearest', cmap="jet")
 
         plt.axis('off')
