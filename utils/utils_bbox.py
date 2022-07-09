@@ -117,12 +117,15 @@ class DecodeBox():
             pred_boxes[..., 2]  = (w.data * 2) ** 2 * anchor_w
             pred_boxes[..., 3]  = (h.data * 2) ** 2 * anchor_h
 
-            #----------------------------------------------------------#
-            #   将输出结果归一化成小数的形式
-            #----------------------------------------------------------#
+            #------------------------------#
+            #   将xywh归一化成小数的形式
+            #------------------------------#
             # 缩放系数
             _scale = torch.Tensor([input_width, input_height, input_width, input_height]).type(FloatTensor)
-            # [b, num_anchors, 85] 85 = x y w h 先验框置信度 种类置信度
+            #------------------------------#
+            #   将xywh归一化成小数的形式
+            #   [b, num_anchors, 85] 85 = x y w h 先验框置信度 种类置信度
+            #------------------------------#
             output = torch.cat((pred_boxes.view(batch_size, -1, 4) / _scale,
                                 conf.view(batch_size, -1, 1), pred_cls.view(batch_size, -1, self.num_classes)), -1)
             outputs.append(output.data)
