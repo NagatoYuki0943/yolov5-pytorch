@@ -52,8 +52,8 @@ class YOLOLoss(nn.Module):
         """
         输入为：
         ----------
-        b1: tensor, shape=(batch, feat_w, feat_h, anchor_num, 4), xywh
-        b2: tensor, shape=(batch, feat_w, feat_h, anchor_num, 4), xywh
+        b1: tensor, shape=(batch, feat_w, feat_h, anchor_num, 4), 4:xywh
+        b2: tensor, shape=(batch, feat_w, feat_h, anchor_num, 4), 4:xywh
 
         返回为：
         -------
@@ -190,7 +190,7 @@ class YOLOLoss(nn.Module):
 
         if self.cuda:
             y_true          = y_true.type_as(x)
-        
+
         loss    = 0
         #-----------------------------------------------#
         #   是否有先验框和真实框对应
@@ -461,7 +461,7 @@ def is_parallel(model):
 def de_parallel(model):
     # De-parallelize a model: returns single-GPU model if model is of type DP or DDP
     return model.module if is_parallel(model) else model
-    
+
 def copy_attr(a, b, include=(), exclude=()):
     # Copy attributes from b to a, options to only include [...] and to exclude [...]
     for k, v in b.__dict__.items():
