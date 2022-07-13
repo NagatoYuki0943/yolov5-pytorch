@@ -45,13 +45,14 @@ class DecodeBox():
             stride_h = self.input_shape[0] / input_height
             stride_w = self.input_shape[1] / input_width
             #-------------------------------------------------#
-            #   调整先验框到相当于目前特征层大小
+            #   将默认的框宽高除以步长
             #   此时获得的scaled_anchors大小是相对于特征层的大小
             #-------------------------------------------------#
             scaled_anchors = [(anchor_width / stride_w, anchor_height / stride_h) for anchor_width, anchor_height in self.anchors[self.anchors_mask[i]]]
 
             #-----------------------------------------------#
             #   输入的input一共有三个，他们的shape分别是
+            #   [batch_size, 3 * (4 + 1 + 80), h, w] -> [batch_size, 3, (4 + 1 + 80), h, w] -> [batch_size, 3, h, w, (4 + 1 + 80)]
             #   调整维度并转置
             #   batch_size, 255, 20, 20 -> batch_size, 3, 85, 20, 20 -> batch_size, 3, 20, 20, 85
             #   batch_size, 255, 40, 40 -> batch_size, 3, 85, 40, 40 -> batch_size, 3, 40, 40, 85
@@ -61,21 +62,21 @@ class DecodeBox():
                                     self.bbox_attrs, input_height, input_width).permute(0, 1, 3, 4, 2).contiguous()
 
             #-----------------------------------------------#
-            #   先验框的中心位置的调整参数
+            #   先验框的中心位置的调整参数,通过sigmoid调整到0~1之间
             #-----------------------------------------------#
             x = torch.sigmoid(prediction[..., 0])
             y = torch.sigmoid(prediction[..., 1])
             #-----------------------------------------------#
-            #   先验框的宽高调整参数
+            #   先验框的宽高调整参数,通过sigmoid调整到0~1之间
             #-----------------------------------------------#
             w = torch.sigmoid(prediction[..., 2])
             h = torch.sigmoid(prediction[..., 3])
             #-----------------------------------------------#
-            #   获得置信度，是否有物体
+            #   获得置信度，是否有物体,通过sigmoid调整到0~1之间
             #-----------------------------------------------#
             conf        = torch.sigmoid(prediction[..., 4])
             #-----------------------------------------------#
-            #   种类置信度
+            #   种类置信度,通过sigmoid调整到0~1之间
             #-----------------------------------------------#
             pred_cls    = torch.sigmoid(prediction[..., 5:])
 
@@ -117,15 +118,16 @@ class DecodeBox():
             pred_boxes[..., 2]  = (w.data * 2) ** 2 * anchor_w
             pred_boxes[..., 3]  = (h.data * 2) ** 2 * anchor_h
 
-            #------------------------------#
-            #   将xywh归一化成小数的形式
-            #------------------------------#
+            #----------------------------------------------------------#
+            #   将xywh归一化成小数的形式,目前的移动是相对于20x20的调整,除以20之后就相对于宽高归一化了(也相对于原图归一化了,这里的20相对于原图就是640)
+            #   前面宽高除以了32,这里再除以20,就相当于除以了640,相对对原图归一化
+            #   input_width=input_height=20,40,80
+            #----------------------------------------------------------#
             # 缩放系数
             _scale = torch.Tensor([input_width, input_height, input_width, input_height]).type(FloatTensor)
-            #------------------------------#
-            #   将xywh归一化成小数的形式
+            #----------------------------------------------------------#
             #   [b, num_anchors, 85] 85 = x y w h 先验框置信度 种类置信度
-            #------------------------------#
+            #----------------------------------------------------------#
             output = torch.cat((pred_boxes.view(batch_size, -1, 4) / _scale,
                                 conf.view(batch_size, -1, 1), pred_cls.view(batch_size, -1, self.num_classes)), -1)
             outputs.append(output.data)
