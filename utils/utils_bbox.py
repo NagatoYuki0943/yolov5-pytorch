@@ -164,15 +164,15 @@ class DecodeBox():
     #   非极大值抑制
     def non_max_suppression(self, prediction, num_classes, input_shape, image_shape, letterbox_image, conf_thres=0.5, nms_thres=0.4):
         #----------------------------------------------------------#
-        #   将预测结果的格式转换成左上角右下角的格式。x1 y1 x2 y2
+        #   将预测结果的格式转换成左上角右下角的格式,坐标宽高相对原图是归一化的
         #   prediction  [batch_size, num_anchors, 85]
         #----------------------------------------------------------#
         box_corner          = prediction.new(prediction.shape)
-        box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
-        box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
-        box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2
-        box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
-        prediction[:, :, :4] = box_corner[:, :, :4] # 替换前四个数据
+        box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2    # x - 1/2 w = x1
+        box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2    # y - 1/2 h = y1
+        box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2    # x + 1/2 w = x2
+        box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2    # y + 1/2 h = y2
+        prediction[:, :, :4] = box_corner[:, :, :4]                            # 替换前4个数据换成左上角右下角的格式
 
         output = [None for _ in range(len(prediction))]
 
@@ -183,14 +183,14 @@ class DecodeBox():
         for i, image_pred in enumerate(prediction):
             #----------------------------------------------------------#
             #   对种类预测部分取max。可能性最大的种类
-            #   class_conf  [num_anchors, 1]    种类置信度
-            #   class_pred  [num_anchors, 1]    种类
+            #   class_conf  [num_anchors, 1]    种类置信度(数字)
+            #   class_pred  [num_anchors, 1]    种类(下标)
             #----------------------------------------------------------#
             class_conf, class_pred = torch.max(image_pred[:, 5:5 + num_classes], 1, keepdim=True)
 
             #----------------------------------------------------------#
-            #   利用置信度进行第一轮筛选
-            #   先验框置信度 * 种类置信度 > 门限
+            #   利用置信度进行第一轮筛选,返回0/1
+            #   先验框置信度 * 种类置信度 > 门限  image_pred[:, 4] * class_conf[:, 0]  是否包含物体 * 置信度 得到最后的置信度,通过比较为 False 或 True
             #   class_conf[:, 0] 只有一个数,所以选0
             #----------------------------------------------------------#
             conf_mask = (image_pred[:, 4] * class_conf[:, 0] >= conf_thres).squeeze()
@@ -205,7 +205,7 @@ class DecodeBox():
                 continue
             #-------------------------------------------------------------------------#
             #   detections  [num_anchors, 7]
-            #   7的内容为：x1, y1, x2, y2, obj_conf, class_conf, class_pred
+            #   7的内容为：x1, y1, x2, y2, obj_conf(是否包含物体置信度), class_conf(种类置信度), class_pred(种类预测值)
             #-------------------------------------------------------------------------#
             detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
 
@@ -232,7 +232,7 @@ class DecodeBox():
                 #   筛选出一定区域内，属于同一种类得分最大的框
                 #------------------------------------------#
                 keep = nms(
-                    detections_class[:, :4],                            # 坐标
+                    detections_class[:, :4],                            # 坐标,是相对于原始宽高归一化的坐标
                     detections_class[:, 4] * detections_class[:, 5],    # 先验框置信度 * 种类置信度 结果是1维数据
                     nms_thres
                 )
