@@ -203,6 +203,7 @@ class YOLOLoss(nn.Module):
             #----------------------------------------------------------------#
             giou        = self.box_giou(pred_boxes, y_true[..., :4]).type_as(x)
             loss_loc    = torch.mean((1 - giou)[y_true[..., 4] == 1])   # 是否有物体 (1-giou)*是否有物体
+            #                                              y_true[..., 4] == 1 含义是只计算有物体的框的损失
             loss_cls    = torch.mean(self.BCELoss(pred_cls[y_true[..., 4] == 1], self.smooth_labels(y_true[..., 5:][y_true[..., 4] == 1], self.label_smoothing, self.num_classes)))
             loss        += loss_loc * self.box_ratio + loss_cls * self.cls_ratio
             #-----------------------------------------------------------#
