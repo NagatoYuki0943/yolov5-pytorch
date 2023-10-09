@@ -72,7 +72,7 @@ class DecodeBox():
             w = torch.sigmoid(prediction[..., 2])
             h = torch.sigmoid(prediction[..., 3])
             #-----------------------------------------------#
-            #   获得置信度，是否有物体,通过sigmoid调整到0~1之间
+            #   获得置信度,是否有物体,通过sigmoid调整到0~1之间
             #-----------------------------------------------#
             conf        = torch.sigmoid(prediction[..., 4])
             #-----------------------------------------------#
@@ -109,8 +109,8 @@ class DecodeBox():
             #   再调整先验框的宽高。
             #   x 0 ~ 1 => 0 ~ 2 => -0.5, 1.5 => 负责一定范围的目标的预测
             #   y 0 ~ 1 => 0 ~ 2 => -0.5, 1.5 => 负责一定范围的目标的预测
-            #   w 0 ~ 1 => 0 ~ 2 => 0 ~ 4 =>     先验框的宽高调节范围为0~4倍
-            #   h 0 ~ 1 => 0 ~ 2 => 0 ~ 4 =>     先验框的宽高调节范围为0~4倍
+            #   w 0 ~ 1 => 0 ~ 2 => 0 ~ 4 => 先验框的宽高调节范围为0~4倍
+            #   h 0 ~ 1 => 0 ~ 2 => 0 ~ 4 => 先验框的宽高调节范围为0~4倍
             #----------------------------------------------------------#
             pred_boxes          = FloatTensor(prediction[..., :4].shape)
             pred_boxes[..., 0]  = x.data * 2. - 0.5 + grid_x
@@ -125,6 +125,7 @@ class DecodeBox():
             #----------------------------------------------------------#
             # 缩放系数
             _scale = torch.Tensor([input_width, input_height, input_width, input_height]).type(FloatTensor)
+
             #----------------------------------------------------------#
             #   output: [b, 3*20*20, 85]
             #           [b, 3*40*40, 85]
@@ -163,8 +164,6 @@ class DecodeBox():
         boxes *= np.concatenate([image_shape, image_shape], axis=-1)
         return boxes
 
-
-    #   非极大值抑制
     def non_max_suppression(self, prediction, num_classes, input_shape, image_shape, letterbox_image, conf_thres=0.5, nms_thres=0.4):
         #----------------------------------------------------------#
         #   将预测结果的格式转换成左上角右下角的格式,坐标宽高相对原图是归一化的
@@ -266,6 +265,7 @@ class DecodeBox():
                 output[i]           = output[i].cpu().numpy()
                 box_xy, box_wh      = (output[i][:, 0:2] + output[i][:, 2:4])/2, output[i][:, 2:4] - output[i][:, 0:2]
                 output[i][:, :4]    = self.yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape, letterbox_image)
+
         #-----------------------------------------------#
         #   results = [[
         #               [x1, y1, x2, y2, obj_conf(是否包含物体置信度), class_conf(种类置信度), class_pred(种类预测值)],

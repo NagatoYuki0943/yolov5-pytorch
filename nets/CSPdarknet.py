@@ -133,7 +133,7 @@ class SPP(nn.Module):
         c_ = c1 // 2  # hidden channels
         # 1x1Conv缩减通道
         self.cv1 = Conv(c1, c_, 1, 1)
-        # 1x1Conv调整通道
+        # 1x1Conv调整最终通道
         self.cv2 = Conv(c_ * (len(k) + 1), c2, 1, 1)
         #                                                   stride=1且有padding,所以最终大小不变
         self.m = nn.ModuleList([nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k])
@@ -208,7 +208,7 @@ class CSPDarknet(nn.Module):
             checkpoint = torch.hub.load_state_dict_from_url(url=url, map_location="cpu", model_dir="./model_data")
             self.load_state_dict(checkpoint, strict=False)
             print("Load weights from ", url.split('/')[-1])
-            
+
     def forward(self, x):
         x = self.stem(x)
         x = self.dark2(x)
